@@ -1,47 +1,44 @@
 # Background Job API — FastAPI + Inngest
 
-A background job processing system built with **FastAPI** and **Inngest** for the FlyRank A7 assignment.
+A background job processing API built with **FastAPI** and **Inngest** as part of FlyRank Internship Assignment A7: *Your First Background Job*.
 
-The application accepts report-generation requests through a REST API, immediately returns an HTTP `202 Accepted` response, and processes the work asynchronously using Inngest background functions.
+The application demonstrates how to accept a request immediately, process it asynchronously in the background, and allow clients to check the job's status.
 
-It also demonstrates input validation, automatic retries, report status tracking, and scheduled cron execution.
+## Project Overview
 
-## Features
+When a client submits a report request, the API:
 
-- FastAPI REST API.
-- Asynchronous background job processing with Inngest.
-- Immediate HTTP 202 responses for accepted requests.
-- Report status tracking (`pending`, `done`, `failed`).
-- Automatic retries for failed background jobs.
-- Input validation with HTTP 400 responses.
-- HTTP 404 handling for unknown reports.
-- Idempotency check to avoid rebuilding completed reports.
-- Scheduled heartbeat function running every minute.
-- Screenshots documenting implementation and testing.
+1. Validates the request.
+2. Creates a report with a unique ID.
+3. Returns `202 Accepted` immediately.
+4. Sends an event to Inngest for background processing.
+5. Processes the report asynchronously.
+6. Updates the report status to `done` or `failed`.
 
-## Technology Stack
+The application also demonstrates automatic retries, input validation, and scheduled cron jobs.
+
+## Technologies Used
 
 | Technology | Purpose |
 |---|---|
 | Python | Main programming language |
-| FastAPI | REST API framework |
+| FastAPI | REST API |
 | Inngest | Background job orchestration |
-| Uvicorn | ASGI server |
-| Node.js / npm | Inngest Dev Server |
-| Git | Version control |
-| GitHub | Source code hosting |
+| Uvicorn | ASGI development server |
+| Inngest Dev Server | Local workflow monitoring |
+| Git and GitHub | Version control and project hosting |
 
 ## Project Structure
 
 ```text
-background-job-api/
+background-job/
 │
 ├── main.py
 ├── requirements.txt
 ├── README.md
-├── .gitignore
 ├── START_HERE.txt
 ├── test_requests.bat
+├── .gitignore
 │
 └── screenshots/
     ├── stage-1-say-hello.png
@@ -54,15 +51,13 @@ background-job-api/
     └── stage-4-heartbeat.png
 ```
 
-## Requirements
+## Getting Started
 
-Install the following before running the project:
+### Requirements
 
-- Python 3.10 or later.
-- Node.js and npm.
-- Git.
-
-## Installation and Setup
+- Python 3.10 or newer
+- Node.js and npm
+- Git
 
 ### 1. Clone the repository
 
@@ -71,21 +66,14 @@ git clone https://github.com/Waqas392/background-job-api.git
 cd background-job-api
 ```
 
-### 2. Create a virtual environment
+### 2. Create and activate a virtual environment
 
 ```bash
 python -m venv .venv
-```
-
-### 3. Activate the virtual environment
-
-Windows Command Prompt:
-
-```cmd
 .venv\Scripts\activate
 ```
 
-### 4. Install dependencies
+### 3. Install dependencies
 
 ```bash
 python -m pip install --upgrade pip
@@ -94,11 +82,9 @@ pip install -r requirements.txt
 
 ## Running the Application
 
-The application requires two running processes.
+You need two terminal windows.
 
 ### Terminal 1 — Start FastAPI
-
-Activate the virtual environment and run:
 
 ```bash
 uvicorn main:app --reload --port 8000
@@ -106,13 +92,9 @@ uvicorn main:app --reload --port 8000
 
 The API will be available at:
 
-```text
-http://localhost:8000
-```
+`http://localhost:8000`
 
 ### Terminal 2 — Start Inngest Dev Server
-
-From the project directory, run:
 
 ```bash
 npx inngest-cli@latest dev -u http://localhost:8000/api/inngest
@@ -120,28 +102,42 @@ npx inngest-cli@latest dev -u http://localhost:8000/api/inngest
 
 Open the Inngest dashboard:
 
-```text
-http://localhost:8288
-```
+`http://localhost:8288`
 
-Keep both terminals running while testing.
+The dashboard allows you to inspect function executions, event runs, retries, and scheduled jobs.
 
 ## API Endpoints
 
 | Method | Endpoint | Description |
 |---|---|---|
 | GET | `/health` | Checks API health |
-| POST | `/reports` | Validates and submits a report request |
+| POST | `/reports` | Creates a background report |
 | GET | `/reports/{report_id}` | Retrieves a report by ID |
-| GET | `/reports` | Lists all reports |
+| GET | `/reports` | Lists available reports |
 
-### Health Check
+## Background Functions
+
+The application contains three Inngest functions.
+
+| Function | Trigger | Purpose |
+|---|---|---|
+| `say-hello` | `test/hello` | Runs a simple background task with a 5-second delay |
+| `make-report` | `report/requested` | Generates a report asynchronously with an 8-second delay |
+| `heartbeat` | Cron schedule | Periodically checks report counts |
+
+## Implementation Stages
+
+### Stage 0 — Hello Server
+
+Created the FastAPI application and health-check endpoint.
+
+Endpoint:
 
 ```http
 GET /health
 ```
 
-Returns:
+Expected response:
 
 ```json
 {
@@ -149,14 +145,30 @@ Returns:
 }
 ```
 
-### Submit a Report
+### Stage 1 — Inngest Integration
+
+Integrated Inngest with FastAPI using the client ID `report-api`.
+
+Created the `say-hello` function, triggered by the `test/hello` event.
+
+The function waits for five seconds before completing.
+
+**Screenshot evidence:**
+
+![Stage 1 - Say Hello](screenshots/stage-1-say-hello.png)
+
+### Stage 2 — Background Report Processing
+
+Implemented asynchronous report creation.
+
+A client submits a report request:
 
 ```http
 POST /reports
 Content-Type: application/json
 ```
 
-Example request:
+Request body:
 
 ```json
 {
@@ -164,177 +176,97 @@ Example request:
 }
 ```
 
-The API validates the request, stores a pending report, sends an Inngest event, and returns HTTP 202.
+The API responds immediately with HTTP `202 Accepted` rather than waiting for report generation.
 
-Example response:
+**Actual POST response:**
+
+```http
+HTTP/1.1 202 Accepted
+```
 
 ```json
 {
-  "id": "generated-report-id",
+  "id": "ebb1af58-3f02-40ed-b477-49b0b7289f82",
   "status": "pending"
 }
 ```
 
-### Retrieve Report Status
+**POST request screenshot:**
+
+![Stage 2 - HTTP 202 Accepted](screenshots/stage-2-http-202.png)
+
+The report can then be checked using:
 
 ```http
-GET /reports/{report_id}
+GET /reports/ebb1af58-3f02-40ed-b477-49b0b7289f82
 ```
 
-A successful report eventually returns its result with status `done`.
+**Actual completed report response:**
 
-## Inngest Background Functions
+```json
+{
+  "id": "ebb1af58-3f02-40ed-b477-49b0b7289f82",
+  "topic": "cats",
+  "status": "done",
+  "result": "Report about cats: this is a sample generated report."
+}
+```
 
-### 1. say-hello
+**Completed report screenshot:**
 
-- Trigger: `test/hello`
-- Waits for five seconds using an Inngest sleep step.
-- Returns a greeting message.
+![Stage 2 - Report Done](screenshots/stage-2-report-done.png)
 
-### 2. make-report
+### Stage 3 — Retries and Validation
 
-- Trigger: `report/requested`
-- Waits for eight seconds before processing.
-- Generates a report for valid topics.
-- Updates report status to `done`.
-- Uses two retries for failed executions.
-- Marks the deliberately failing `fail` topic as `failed` after the final attempt.
+Implemented error handling and input validation.
 
-### 3. heartbeat
+**Retry handling**
 
-- Trigger: Cron schedule.
-- Runs automatically every minute.
-- Counts reports by status.
-- Logs pending, done, and failed report counts.
+The `make-report` function is configured with two retries.
 
-Cron expression:
+When a report is submitted with the topic `fail`, the function raises an error during processing. Inngest retries the function and eventually marks the run as failed after the configured attempts.
+
+**Input validation**
+
+Requests with missing or invalid required input are rejected with HTTP `400 Bad Request`.
+
+Invalid requests are rejected before a background job is queued.
+
+**Why retries and validation are different:**
+
+Retries handle failures that occur during background processing. Validation rejects incorrect requests before processing begins, so retrying invalid input would not solve the problem.
+
+**Screenshot evidence:**
+
+![Stage 3 - Failed Run](screenshots/stage-3-failed-run.png)
+
+![Stage 3 - Failed Report](screenshots/stage-3-report-failed.png)
+
+![Stage 3 - Retries Confirmed](screenshots/stage-3-retries-confirmed.png)
+
+![Stage 3 - Validation 400](screenshots/stage-3-validation-400.png)
+
+### Stage 4 — Scheduled Cron Job
+
+Implemented a scheduled `heartbeat` function using Inngest cron.
+
+The function runs every minute:
 
 ```text
 * * * * *
 ```
 
-## Implementation Stages
+It periodically checks and logs the number of reports in different states:
 
-### Stage 0 — Health Endpoint
+- Pending reports
+- Completed reports
+- Failed reports
 
-Implemented a basic FastAPI health endpoint to verify that the API server is running.
+**Screenshot evidence:**
 
-### Stage 1 — Inngest Integration
+![Stage 4 - Heartbeat](screenshots/stage-4-heartbeat.png)
 
-Connected FastAPI with Inngest and implemented the `say-hello` background function.
-
-### Stage 2 — Background Report Processing
-
-Implemented:
-
-- Report submission.
-- HTTP 202 Accepted responses.
-- Background report generation.
-- Report status polling.
-- Successful report completion.
-
-### Stage 3 — Retries and Input Validation
-
-Implemented automatic retries and request validation.
-
-The `make-report` function uses:
-
-```python
-retries=2
-```
-
-This allows three total execution attempts:
-
-1. Initial execution.
-2. First retry.
-3. Second retry.
-
-The deliberately failing topic demonstrates retry behavior.
-
-Missing or invalid topics are rejected immediately with HTTP 400 rather than being submitted as background jobs.
-
-### Stage 4 — Cron Heartbeat
-
-Implemented a scheduled heartbeat function using:
-
-```python
-inngest.TriggerCron(cron="* * * * *")
-```
-
-The function executes every minute and logs report status counts without requiring an HTTP request.
-
-## Screenshots and Testing Evidence
-
-The following screenshots document the implementation and local testing of the project.
-
-### Stage 1 — Say Hello
-
-![Stage 1 Say Hello](screenshots/stage-1-say-hello.png)
-
-### Stage 2 — Background Job Processing
-
-**HTTP 202 Accepted**
-
-![Stage 2 HTTP 202](screenshots/stage-2-http-202.png)
-
-**Report Successfully Completed**
-
-![Stage 2 Report Done](screenshots/stage-2-report-done.png)
-
-### Stage 3 — Retries and Validation
-
-**Failed Background Job**
-
-![Stage 3 Failed Run](screenshots/stage-3-failed-run.png)
-
-**Failed Report Status**
-
-![Stage 3 Report Failed](screenshots/stage-3-report-failed.png)
-
-**Three Execution Attempts Confirmed**
-
-![Stage 3 Retries Confirmed](screenshots/stage-3-retries-confirmed.png)
-
-**HTTP 400 Validation**
-
-![Stage 3 Validation](screenshots/stage-3-validation-400.png)
-
-### Stage 4 — Cron Heartbeat
-
-![Stage 4 Heartbeat](screenshots/stage-4-heartbeat.png)
-
-## Important Implementation Details
-
-### Retry vs. Validation
-
-Retries are useful when a background operation fails temporarily.
-
-However, invalid input should not be retried because the same invalid request will continue to fail.
-
-This application handles these situations separately:
-
-- Temporary or processing failures are handled through Inngest retries.
-- Missing or invalid topics are rejected immediately with HTTP 400.
-
-### Idempotency
-
-The background function checks whether a report has already been completed before building it again.
-
-This helps prevent duplicate processing of completed reports.
-
-### Storage Limitation
-
-This project uses an in-memory Python dictionary to store reports.
-
-Consequently:
-
-- Reports disappear when the FastAPI process restarts.
-- Data is not persistent.
-- Multiple API worker processes would not share the same report store.
-
-Persistent database storage is outside the scope of this demonstration.
-
-## Useful Cron Examples
+#### Cron Schedule Examples
 
 | Cron Expression | Schedule |
 |---|---|
@@ -342,7 +274,43 @@ Persistent database storage is outside the scope of this demonstration.
 | `0 8 * * *` | Every day at 08:00 |
 | `0 22 * * 0` | Every Sunday at 22:00 |
 
-Actual execution times depend on the scheduler's configured timezone.
+## Important Implementation Details
+
+### Asynchronous Processing
+
+The API does not wait for report generation to finish. It returns `202 Accepted` and lets Inngest execute the background function.
+
+### Report Status Tracking
+
+Reports have statuses that indicate their processing state:
+
+- `pending`
+- `done`
+- `failed`
+
+Clients can retrieve a report using its unique ID.
+
+### Error Handling
+
+The application demonstrates how Inngest handles configured retries when a background function fails.
+
+### Storage
+
+The current implementation uses in-memory report storage. This is suitable for the local assignment demonstration, but report records are not persistent across application restarts.
+
+## Assignment Demonstration
+
+This project demonstrates:
+
+- Building a background job API with FastAPI.
+- Integrating Inngest with a Python application.
+- Returning HTTP `202 Accepted`.
+- Tracking asynchronous job status.
+- Handling background function failures.
+- Configuring automatic retries.
+- Validating incoming requests.
+- Scheduling recurring cron jobs.
+- Monitoring executions using the Inngest Dev Server.
 
 ## Author
 
@@ -350,10 +318,7 @@ Actual execution times depend on the scheduler's configured timezone.
 
 GitHub: [@Waqas392](https://github.com/Waqas392)
 
-Project: [Background Job API](https://github.com/Waqas392/background-job-api)
+Repository: [background-job-api](https://github.com/Waqas392/background-job-api)
 
-## Assignment
-
-**FlyRank — A7 Background Job Processing**
-
-Built using FastAPI and Inngest to demonstrate asynchronous task processing, retries, validation, status tracking, and scheduled background execution.
+**Program:** FlyRank Internship  
+**Assignment:** A7 — Your First Background Job
