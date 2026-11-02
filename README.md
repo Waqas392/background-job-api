@@ -29,7 +29,7 @@ When a client submits a report request:
 ## Project Structure
 
 ```text
-background-job/
+background-job-api/
 ├── main.py
 ├── requirements.txt
 ├── README.md
@@ -39,6 +39,7 @@ background-job/
 └── screenshots/
     ├── stage-1-say-hello.png
     ├── stage-2-http-202.png
+    ├── stage-2-report-pending.png
     ├── stage-2-report-done.png
     ├── stage-3-failed-run.png
     ├── stage-3-report-failed.png
@@ -171,7 +172,17 @@ HTTP/1.1 202 Accepted
 
 ![Stage 2 - HTTP 202 Accepted](screenshots/stage-2-http-202.png)
 
-After the background job finishes (about 8 seconds), the same ID returns the completed report:
+Polling right after the POST, while the job is still running, shows the report as `pending`. This PowerShell command submits a fresh report and polls it immediately:
+
+```powershell
+$r = Invoke-RestMethod -Method Post -Uri http://localhost:8000/reports -ContentType "application/json" -Body '{"topic":"cats"}'; $r | ConvertTo-Json -Compress; curl.exe -s http://localhost:8000/reports/$($r.id)
+```
+
+The first line printed is the `202` body with the new report's ID, and the GET result below it shows `"status":"pending"`.
+
+![Stage 2 - Report Pending](screenshots/stage-2-report-pending.png)
+
+After the background job finishes (about 8 seconds), polling the first report's ID returns the completed result:
 
 ```bash
 curl http://localhost:8000/reports/ebb1af58-3f02-40ed-b477-49b0b7289f82
