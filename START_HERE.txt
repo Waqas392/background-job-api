@@ -1,0 +1,9 @@
+FlyRank A7 starter project
+
+1. Extract this folder.
+2. Open Command Prompt in this folder.
+3. Follow the Windows setup and run instructions in README.md.
+4. Keep the API and Inngest Dev Server running in separate terminals.
+5. Test every checkpoint and add your own real proof before submission.
+
+This starter has not been run or verified in your environment. Inngest SDK APIs can change, so if a function signature errors, check the current official Python quick start and adjust the code.
