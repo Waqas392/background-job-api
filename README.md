@@ -33,15 +33,18 @@ background-job-api/
 ├── main.py
 ├── requirements.txt
 ├── README.md
-├── START_HERE.txt
 ├── test_requests.bat
 ├── .gitignore
 └── screenshots/
     ├── stage-1-say-hello.png
     ├── stage-2-http-202.png
+    ├── stage-2-202-timing.png
     ├── stage-2-report-pending.png
     ├── stage-2-report-done.png
+    ├── stage-2-dashboard-completed.png
+    ├── stage-2-404.png
     ├── stage-3-failed-run.png
+    ├── stage-3-report-status-during-retries.png
     ├── stage-3-report-failed.png
     ├── stage-3-retries-confirmed.png
     ├── stage-3-validation-400.png
@@ -172,6 +175,14 @@ HTTP/1.1 202 Accepted
 
 ![Stage 2 - HTTP 202 Accepted](screenshots/stage-2-http-202.png)
 
+The POST answers in well under a second, because the 8-second work happens in the background, not in the endpoint. This command prints the status code and the total time:
+
+```bash
+curl.exe -s -o NUL -w "HTTP %{http_code} in %{time_total}s\n" -X POST http://localhost:8000/reports -H "Content-Type: application/json" -d "{\"topic\":\"cats\"}"
+```
+
+![Stage 2 - 202 Timing](screenshots/stage-2-202-timing.png)
+
 Polling right after the POST, while the job is still running, shows the report as `pending`. This PowerShell command submits a fresh report and polls it immediately:
 
 ```powershell
@@ -199,6 +210,22 @@ curl http://localhost:8000/reports/ebb1af58-3f02-40ed-b477-49b0b7289f82
 
 ![Stage 2 - Report Done](screenshots/stage-2-report-done.png)
 
+The Inngest dashboard shows the same kind of job as a completed `make-report` run. The trace has two steps: `do-the-slow-work` (the 8-second sleep) and `build-report` (a `step.run` that saves the result and sets the status to `done`).
+
+![Stage 2 - Dashboard Completed Run](screenshots/stage-2-dashboard-completed.png)
+
+An unknown report ID returns `404 Not Found`:
+
+```bash
+curl.exe -i http://localhost:8000/reports/does-not-exist
+```
+
+```json
+{ "error": "not found" }
+```
+
+![Stage 2 - 404 Not Found](screenshots/stage-2-404.png)
+
 ### Stage 3 — Retries and Input Validation
 
 **Retries.** `make-report` is configured with 2 retries, so a failing job runs up to **3 times in total** (Attempt 0, Attempt 1, Attempt 2). If every attempt fails, Inngest marks the run as failed and the report status becomes `failed`.
@@ -214,6 +241,10 @@ In the Inngest dashboard, the failed `make-report` run shows the `build-report` 
 ![Stage 3 - Failed Run](screenshots/stage-3-failed-run.png)
 
 ![Stage 3 - Retries Confirmed](screenshots/stage-3-retries-confirmed.png)
+
+Polling the report every few seconds while the retries are running:
+
+![Stage 3 - Report Status During Retries](screenshots/stage-3-report-status-during-retries.png)
 
 Checking the report afterwards shows `"status":"failed"`:
 
@@ -237,6 +268,8 @@ This runs it every minute. Each run logs the number of pending, done, and failed
 
 ![Stage 4 - Heartbeat](screenshots/stage-4-heartbeat.png)
 
+`0 8 * * *` runs a job every day at 08:00, and `0 22 * * 0` runs it every Sunday at 22:00.
+
 Other cron examples:
 
 | Cron Expression | Schedule |
@@ -246,6 +279,14 @@ Other cron examples:
 | `0 22 * * 0` | Every Sunday at 22:00 |
 
 ---
+
+## Testing
+
+`test_requests.bat` (run it in Windows Command Prompt) checks the health endpoint, a missing topic (`400`), an unknown report ID (`404`), and a normal report submission.
+
+## Idempotency
+
+`make-report` skips a report that is already `done`, so receiving the same `report/requested` event twice builds the report only once. Jobs must survive running twice because event delivery and retries can repeat work; a job that is safe to repeat cannot double-send or corrupt data.
 
 ## Report Statuses
 
